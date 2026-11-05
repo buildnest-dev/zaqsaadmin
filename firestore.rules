@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// Paste this into Firebase console > Firestore Database > Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function isAdmin() {
+      return signedIn() && (
+        request.auth.token.email == 'zyqotech@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.token.email))
+      );
+    }
+
+    // Website content: anyone can read (the public site does), only admins can change it.
+    match /site/{key} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Previous versions, kept on every save so a mistake can be undone.
+    match /site_history/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Extra admins besides the owner.
+    match /admins/{email} {
+      allow read: if signedIn() && request.auth.token.email == email || isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}
