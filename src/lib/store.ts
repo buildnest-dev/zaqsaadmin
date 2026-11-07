@@ -1,3 +1,5 @@
+import { collection, doc, getDoc, getDocs, serverTimestamp, setDoc, deleteDoc } from "firebase/firestore";
+import { auth, db } from "./firebase";
 import seed from "./seed.json";
 import { HOME_DEFAULT, type DocKey, type SiteDocs } from "./types";
 
@@ -6,60 +8,48 @@ const SEED: SiteDocs = { ...(seed as unknown as Omit<SiteDocs, "home">), home: H
 export const defaultsFor = <K extends DocKey>(key: K): SiteDocs[K] =>
   structuredClone(SEED[key]) as SiteDocs[K];
 
-/** Calls the admin server. A 401 means the session ended, so go back to the sign-in page. */
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (response.status === 401) {
-    window.location.assign("/sign-in");
-    throw new Error("Your session ended. Please sign in again.");
-  }
-  if (!response.ok) throw new Error("Could not reach the server. Please try again.");
-  return (await response.json()) as T;
-}
-
 /** Read one document; null when it has never been saved (the site then uses its built-in content). */
 export async function loadDoc<K extends DocKey>(key: K): Promise<SiteDocs[K] | null> {
-  const { json } = await api<{ json: string | null }>(`/api/site/${key}`);
-  if (!json) return null;
+  const snap = await getDoc(doc(db, "site", key));
+  if (!snap.exists()) return null;
   try {
-    return JSON.parse(json) as SiteDocs[K];
+    return JSON.parse(snap.data()["json"] as string) as SiteDocs[K];
   } catch {
     return null;
   }
 }
 
-/** Save one document. The server keeps the previous version in `site_history` so a mistake can be undone. */
+/** Save one document and keep the previous version in `site_history` so a mistake can be undone. */
 export async function saveDoc<K extends DocKey>(key: K, value: SiteDocs[K]): Promise<void> {
-  await api(`/api/site/${key}`, { method: "PUT", body: JSON.stringify({ json: JSON.stringify(value) }) });
+  const ref = doc(db, "site", key);
+  const before = await getDoc(ref);
+  const who = auth.currentUser?.email ?? "unknown";
+  if (before.exists()) {
+    await setDoc(doc(db, "site_history", `${key}_${Date.now()}`), {
+      key,
+      json: before.data()["json"],
+      savedBy: who,
+      savedAt: serverTimestamp(),
+    });
+  }
+  await setDoc(ref, { json: JSON.stringify(value), updatedBy: who, updatedAt: serverTimestamp() });
 }
 
-/** When each document was last published (null if never). */
+export async function listAdmins(): Promise<string[]> {
+  const snap = await getDocs(collection(db, "admins"));
+  return snap.docs.map((d) => d.id).sort();
+}
+export const addAdmin = (email: string) =>
+  setDoc(doc(db, "admins", email.trim().toLowerCase()), { addedBy: auth.currentUser?.email ?? "" });
+export const removeAdmin = (email: string) => deleteDoc(doc(db, "admins", email));
+
+/** True when a document has been published at least once. */
 export async function publishedKeys(): Promise<Record<string, Date | null>> {
-  const { keys } = await api<{ keys: Record<string, string | null> }>("/api/site");
-  return Object.fromEntries(Object.entries(keys).map(([key, at]) => [key, at ? new Date(at) : null]));
-}
-
-export type Me = { email: string; name: string };
-
-export async function currentUser(): Promise<Me | null> {
-  const response = await fetch("/api/auth/me", { credentials: "same-origin" });
-  return response.ok ? ((await response.json()) as Me) : null;
-}
-
-export async function signIn(email: string, password: string, code: string): Promise<Me | null> {
-  const response = await fetch("/api/auth/login", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, code }),
+  const snap = await getDocs(collection(db, "site"));
+  const out: Record<string, Date | null> = {};
+  snap.docs.forEach((d) => {
+    const at = d.data()["updatedAt"] as { toDate?: () => Date } | undefined;
+    out[d.id] = at?.toDate?.() ?? null;
   });
-  return response.ok ? ((await response.json()) as Me) : null;
-}
-
-export async function signOut(): Promise<void> {
-  await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+  return out;
 }

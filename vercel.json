@@ -1,18 +1,1 @@
-{
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index" },
-    { "source": "/sso/team", "destination": "/api/index" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-      ]
-    }
-  ]
-}
+{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }

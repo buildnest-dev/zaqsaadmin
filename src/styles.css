@@ -101,10 +101,6 @@ select {
   box-shadow: 0 30px 60px -40px rgba(49, 46, 129, 0.5);
 }
 
-.login-card input {
-  width: 100%;
-}
-
 /* shell */
 .shell {
   display: grid;
