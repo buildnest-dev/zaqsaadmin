@@ -503,11 +503,11 @@ textarea {
 .alert-banner {
   display: block;
   margin-bottom: 1rem;
-  border: 1px solid #f59e0b;
+  border: 1px solid var(--warn);
   border-radius: 12px;
-  background: #fffbeb;
+  background: color-mix(in srgb, var(--warn) 16%, var(--card));
   padding: 0.8rem 1rem;
-  color: #92400e;
+  color: var(--ink);
   font-weight: 600;
   text-decoration: none;
 }
@@ -535,11 +535,14 @@ textarea {
   gap: 0.4rem;
   margin-top: 0.8rem;
   border-radius: 14px;
-  background: #eef2ff;
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--line));
+  background: color-mix(in srgb, var(--primary) 14%, var(--card));
+  color: var(--ink);
   padding: 1rem;
 }
 .code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink);
   font-size: 2.4rem;
   letter-spacing: 0.25em;
 }
