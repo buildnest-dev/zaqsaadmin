@@ -1,32 +1,15 @@
 import { useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
-import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db, googleProvider, OWNER_EMAIL } from "./lib/firebase";
+import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { currentUser, signOut, type Me } from "./lib/store";
 import { Dashboard } from "./pages/Dashboard";
 import { ServicesPage } from "./pages/Services";
 import { CorePage } from "./pages/Core";
 import { TeamPage } from "./pages/Team";
 import { CompanyPage } from "./pages/Company";
 import { HomePage } from "./pages/Home";
-import { AdminsPage } from "./pages/Admins";
+import { SignInPage, safeNext } from "./pages/SignIn";
 
-type Session =
-  | { status: "loading" }
-  | { status: "out" }
-  | { status: "denied"; user: User }
-  | { status: "in"; user: User };
-
-async function isAdmin(user: User): Promise<boolean> {
-  const email = (user.email ?? "").toLowerCase();
-  if (!email || !user.emailVerified) return false;
-  if (email === OWNER_EMAIL) return true;
-  try {
-    return (await getDoc(doc(db, "admins", email))).exists();
-  } catch {
-    return false;
-  }
-}
+type Session = { status: "loading" } | { status: "out" } | { status: "in"; me: Me };
 
 const NAV = [
   { to: "/", label: "Overview", end: true },
@@ -35,61 +18,29 @@ const NAV = [
   { to: "/showcase", label: "Home showcase" },
   { to: "/team", label: "Team" },
   { to: "/company", label: "Company & contact" },
-  { to: "/admins", label: "Admins" },
 ];
 
 export function App() {
   const [session, setSession] = useState<Session>({ status: "loading" });
-  const [error, setError] = useState("");
+  const location = useLocation();
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (user) => {
-        if (!user) return setSession({ status: "out" });
-        setSession((await isAdmin(user)) ? { status: "in", user } : { status: "denied", user });
-      }),
-    [],
-  );
+  useEffect(() => {
+    void currentUser()
+      .catch(() => null)
+      .then((me) => setSession(me ? { status: "in", me } : { status: "out" }));
+  }, []);
 
-  const signIn = async () => {
-    setError("");
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (problem) {
-      setError(problem instanceof Error ? problem.message : "Sign-in failed.");
-    }
-  };
+  const next = safeNext(new URLSearchParams(location.search).get("next"));
+  const signedIn = session.status === "in";
+
+  // After signing in, carry on to the team hand-off if that is where the person was heading.
+  useEffect(() => {
+    if (signedIn && location.pathname === "/sign-in" && next) window.location.assign(next);
+  }, [signedIn, location.pathname, next]);
 
   if (session.status === "loading") return <div className="center muted">Loading…</div>;
-
-  if (session.status !== "in") {
-    return (
-      <div className="login">
-        <div className="login-card">
-          <img src="/icon.png" alt="" width={56} height={56} />
-          <h1>ZAQSA Admin</h1>
-          {session.status === "denied" ? (
-            <>
-              <p className="error">
-                {session.user.email} is not an admin. Ask an existing admin to add this email.
-              </p>
-              <button className="btn" onClick={() => signOut(auth)}>
-                Use another account
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="muted">Sign in with an approved Google account to manage the website.</p>
-              <button className="btn primary" onClick={signIn}>
-                Continue with Google
-              </button>
-              {error && <p className="error">{error}</p>}
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
+  if (session.status === "out") return <SignInPage onDone={(me) => setSession({ status: "in", me })} />;
+  if (location.pathname === "/sign-in") return next ? <div className="center muted">Signing you in…</div> : <Navigate to="/" replace />;
 
   return (
     <div className="shell">
@@ -108,8 +59,11 @@ export function App() {
           ))}
         </nav>
         <div className="side-foot">
-          <span className="muted">{session.user.email}</span>
-          <button className="btn small ghost" onClick={() => signOut(auth)}>
+          <span className="muted">{session.me.email}</span>
+          <button
+            className="btn small ghost"
+            onClick={() => signOut().finally(() => setSession({ status: "out" }))}
+          >
             Sign out
           </button>
         </div>
@@ -122,7 +76,6 @@ export function App() {
           <Route path="/showcase" element={<CorePage />} />
           <Route path="/team" element={<TeamPage />} />
           <Route path="/company" element={<CompanyPage />} />
-          <Route path="/admins" element={<AdminsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
