@@ -486,3 +486,67 @@ textarea {
     max-height: 18rem;
   }
 }
+
+/* team sign-in requests */
+.count-badge {
+  display: inline-block;
+  min-width: 1.3rem;
+  margin-left: 0.3rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  padding: 0 0.4rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.alert-banner {
+  display: block;
+  margin-bottom: 1rem;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  background: #fffbeb;
+  padding: 0.8rem 1rem;
+  color: #92400e;
+  font-weight: 600;
+  text-decoration: none;
+}
+.request-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.request-head h3,
+.request-head p {
+  margin: 0;
+}
+.request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+.small-text {
+  font-size: 0.85rem;
+}
+.code-box {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  border-radius: 14px;
+  background: #eef2ff;
+  padding: 1rem;
+}
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 2.4rem;
+  letter-spacing: 0.25em;
+}
+.section-title {
+  margin: 2rem 0 0.8rem;
+  font-size: 1.1rem;
+}
+.list .card + .card {
+  margin-top: 0.8rem;
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db, googleProvider, OWNER_EMAIL } from "./lib/firebase";
@@ -10,6 +10,8 @@ import { TeamPage } from "./pages/Team";
 import { CompanyPage } from "./pages/Company";
 import { HomePage } from "./pages/Home";
 import { AdminsPage } from "./pages/Admins";
+import { LoginRequestsPage } from "./pages/LoginRequests";
+import { RequestsProvider, useRequests } from "./components/Requests";
 
 type Session =
   | { status: "loading" }
@@ -35,8 +37,33 @@ const NAV = [
   { to: "/showcase", label: "Home showcase" },
   { to: "/team", label: "Team" },
   { to: "/company", label: "Company & contact" },
+  { to: "/requests", label: "Team sign-ins" },
   { to: "/admins", label: "Admins" },
 ];
+
+/** Sidebar entry for team sign-ins, with a count of people waiting. */
+function NavLabel({ to, label }: { to: string; label: string }) {
+  const { pending } = useRequests();
+  if (to !== "/requests" || pending.length === 0) return <>{label}</>;
+  return (
+    <>
+      {label} <span className="count-badge">{pending.length}</span>
+    </>
+  );
+}
+
+function PendingBanner() {
+  const { pending } = useRequests();
+  const location = useLocation();
+  if (pending.length === 0 || location.pathname === "/requests") return null;
+  return (
+    <NavLink to="/requests" className="alert-banner">
+      {pending.length === 1
+        ? `${pending[0]!.name || pending[0]!.email} is waiting to sign in to the team site. Review`
+        : `${pending.length} people are waiting to sign in to the team site. Review`}
+    </NavLink>
+  );
+}
 
 export function App() {
   const [session, setSession] = useState<Session>({ status: "loading" });
@@ -92,6 +119,7 @@ export function App() {
   }
 
   return (
+    <RequestsProvider>
     <div className="shell">
       <aside className="side">
         <div className="brand">
@@ -103,7 +131,7 @@ export function App() {
         <nav>
           {NAV.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end}>
-              {item.label}
+              <NavLabel to={item.to} label={item.label} />
             </NavLink>
           ))}
         </nav>
@@ -115,6 +143,7 @@ export function App() {
         </div>
       </aside>
       <main className="main">
+        <PendingBanner />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/home" element={<HomePage />} />
@@ -122,10 +151,12 @@ export function App() {
           <Route path="/showcase" element={<CorePage />} />
           <Route path="/team" element={<TeamPage />} />
           <Route path="/company" element={<CompanyPage />} />
+          <Route path="/requests" element={<LoginRequestsPage />} />
           <Route path="/admins" element={<AdminsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
+    </RequestsProvider>
   );
 }
